@@ -22,6 +22,7 @@ import okio.ByteString
 import android.content.* // For ContextCompat and ClipboardManager
 import android.os.Build
 import androidx.core.content.ContextCompat // For getting system services compatibly
+import kotlinx.coroutines.*
 
 class ClipboardSyncService : Service() {
 
@@ -41,6 +42,8 @@ class ClipboardSyncService : Service() {
     private var webSocket: WebSocket? = null
 
     private var serverIpAddress: String? = null
+    private var reconnectionJob: Job? = null // Holds the coroutine job for retrying
+    private val RECONNECT_DELAY_MS = 5000L
 
     // WebSocket Listener implementation
     private val webSocketListener =
@@ -83,6 +86,7 @@ class ClipboardSyncService : Service() {
                 super.onClosing(webSocket, code, reason)
                 println("WebSocket: Closing: $code / $reason")
                 this@ClipboardSyncService.webSocket = null // Clear the connection reference
+                scheduleReconnect()
             }
 
             // Called when the connection fails (network error, server down, etc.)
@@ -91,6 +95,7 @@ class ClipboardSyncService : Service() {
                 println("WebSocket: Failure: ${t.message}")
                 this@ClipboardSyncService.webSocket = null // Clear the connection reference
                 // TODO: Implement reconnection logic (e.g., try again after a delay)
+                scheduleReconnect()
             }
         }
 
@@ -142,6 +147,7 @@ class ClipboardSyncService : Service() {
     // Called when the service is being destroyed
     override fun onDestroy() {
         super.onDestroy()
+        reconnectionJob?.cancel()
         serviceScope.cancel() // Cancel all coroutines started by this service
 
         webSocket?.close(1000, "Service shutting down") // 1000 is the code for normal closure
@@ -150,7 +156,39 @@ class ClipboardSyncService : Service() {
         println("ClipboardSyncService: Service Destroyed.")
     }
 
+    private fun scheduleReconnect() {
+        // Cancel any existing reconnection attempt coroutine
+        reconnectionJob?.cancel()
 
+        // Launch a new coroutine in our serviceScope
+        reconnectionJob = serviceScope.launch {
+            try {
+                println("WebSocket: Scheduling reconnect in ${RECONNECT_DELAY_MS / 1000} seconds...")
+                delay(RECONNECT_DELAY_MS) // Wait for the specified delay
+                tryReconnect()           // Call the function that actually tries connecting
+            } catch (e: CancellationException) {
+                println("WebSocket: Reconnection cancelled.")
+                // Coroutine was cancelled (e.g., service stopping), do nothing further
+            } catch (e: Exception) {
+                println("WebSocket: Error during reconnection scheduling: ${e.message}")
+                // Handle potential errors during delay/retry logic if necessary
+            }
+        }
+    }
+
+    /**
+     * Attempts to reconnect the WebSocket. Called after the delay.
+     */
+    private fun tryReconnect() {
+        // Make sure we are still running in the coroutine context
+        // and check if IP is available
+        if (serviceScope.isActive && !serverIpAddress.isNullOrEmpty()) {
+            println("WebSocket: Attempting reconnect now...")
+            connectWebSocket() // Reuse our existing connection function
+        } else {
+            println("WebSocket: Reconnect aborted (service stopping or IP missing).")
+        }
+    }
 
     private fun connectWebSocket() {
         if (webSocket != null || serverIpAddress.isNullOrEmpty()) {

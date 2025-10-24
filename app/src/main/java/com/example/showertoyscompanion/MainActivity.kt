@@ -34,6 +34,7 @@ class MainActivity : ComponentActivity() {
     private var isServiceRunning by mutableStateOf(false) // You'll need a way to check this accurately.
     private var showConnectionError by mutableStateOf(false)
 
+
     // --- ActivityResultLaunchers ---
 
     // Launcher for Notification Permission
