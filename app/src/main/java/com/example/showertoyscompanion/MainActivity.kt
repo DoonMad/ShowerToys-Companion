@@ -11,6 +11,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -28,51 +29,36 @@ import com.journeyapps.barcodescanner.ScanOptions
 
 class MainActivity : ComponentActivity() {
 
-    // --- State Management ---
-    // These states will drive the UI and recompose it when they change.
-    private var serverIp by mutableStateOf("")
-    private var isServiceRunning by mutableStateOf(false) // You'll need a way to check this accurately.
-    private var showConnectionError by mutableStateOf(false)
+    private val viewModel: MainViewModel by viewModels()
 
-
-    // --- ActivityResultLaunchers ---
-
-    // Launcher for Notification Permission
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
             if (isGranted) {
-                println("Notification permission granted.")
-                if (serverIp.isNotEmpty()) {
-                    startSyncService(serverIp)
+                val ip = viewModel.serverIp.value
+                if (ip != null) {
+                    startSyncService(ip)
                 }
             } else {
                 println("Notification permission denied.")
-                // TODO: Show a message explaining why the permission is crucial for the service.
             }
         }
 
-    // Launcher for QR Code Scanner
     private val scanQrCodeLauncher: ActivityResultLauncher<ScanOptions> =
         registerForActivityResult(ScanContract()) { result ->
             if (result.contents == null) {
                 println("QR Scan cancelled.")
             } else {
-                println("QR Scan successful: ${result.contents}")
                 try {
-                    val urlString = result.contents
-                    val ipAddress = urlString.substringAfter("://").substringBefore(":")
+                    val ipAddress = result.contents.substringAfter("://").substringBefore(":")
                     if (ipAddress.isNotEmpty()) {
-                        println("Extracted IP: $ipAddress")
-                        saveServerIp(ipAddress) // Save the IP
-                        serverIp = ipAddress     // Update the UI state
-                        checkPermissionAndStartService(ipAddress) // Attempt to start the service with the new IP
+                        viewModel.updateServerIp(ipAddress)
+                        saveServerIp(ipAddress)
+                        checkPermissionAndStartService(ipAddress)
                     } else {
-                        println("Could not parse IP from QR code: $urlString")
-                        showConnectionError = true
+                        println("Could not parse IP from QR code: ${result.contents}")
                     }
                 } catch (e: Exception) {
                     Log.e("MainActivity", "Error parsing QR code", e)
-                    showConnectionError = true
                 }
             }
         }
@@ -80,30 +66,33 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // On startup, load the stored IP and check permission to start the service.
         val storedIp = getStoredIp()
         if (storedIp.isNotEmpty()) {
-            serverIp = storedIp
+            viewModel.updateServerIp(storedIp)
             checkPermissionAndStartService(storedIp)
         }
 
         setContent {
+            val connectionStatus by viewModel.connectionStatus.collectAsState()
+            val serverIp by viewModel.serverIp.collectAsState()
+
             ShowertoysCompanionTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // Pass the state variables into the Composable
                     MainScreen(
-                        isServiceRunning = isServiceRunning,
+                        connectionStatus = connectionStatus,
                         serverIp = serverIp,
-                        showConnectionError = showConnectionError,
                         onScanClick = { launchQrScanner() },
                         onToggleServiceClick = {
-                            if (isServiceRunning) {
-                                stopSyncService()
-                            } else {
-                                checkPermissionAndStartService(serverIp)
+                            val ip = serverIp
+                            if (ip != null) {
+                                if (connectionStatus == ConnectionStatus.CONNECTED) {
+                                    stopSyncService()
+                                } else {
+                                    checkPermissionAndStartService(ip)
+                                }
                             }
                         }
                     )
@@ -112,12 +101,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // --- UI Composable ---
     @Composable
     fun MainScreen(
-        isServiceRunning: Boolean,
-        serverIp: String,
-        showConnectionError: Boolean,
+        connectionStatus: ConnectionStatus,
+        serverIp: String?,
         onScanClick: () -> Unit,
         onToggleServiceClick: () -> Unit
     ) {
@@ -128,8 +115,8 @@ class MainActivity : ComponentActivity() {
         ) {
             Text("ShowerToys Companion", style = MaterialTheme.typography.headlineSmall)
 
-            Text("Status: ${if (isServiceRunning) "Service Running" else "Service Stopped"}")
-            Text("PC Address: ${if (serverIp.isNotEmpty()) serverIp else "Not Set"}")
+            Text("Status: ${connectionStatus.name}")
+            Text("PC Address: ${serverIp ?: "Not Set"}")
 
             Button(onClick = onScanClick) {
                 Text("Scan PC QR Code")
@@ -137,45 +124,39 @@ class MainActivity : ComponentActivity() {
 
             Button(
                 onClick = onToggleServiceClick,
-                // Disable start button if no IP is set
-                enabled = isServiceRunning || serverIp.isNotEmpty()
+                enabled = serverIp != null
             ) {
-                Text(if (isServiceRunning) "Stop Sync Service" else "Start Sync Service")
+                Text(if (connectionStatus == ConnectionStatus.CONNECTED) "Disconnect" else "Connect")
             }
 
-            if (showConnectionError) {
-                Text("Error: Invalid QR code or connection failed.", color = Color.Red)
+            if (connectionStatus == ConnectionStatus.ERROR) {
+                Text("Error: Connection Failed", color = Color.Red)
             }
         }
     }
-
-    // --- Logic Functions ---
 
     private fun launchQrScanner() {
         val options = ScanOptions().apply {
             setPrompt("Scan QR code from ShowerToys")
             setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-            // FIX 1: setOrientationLocked(false) allows the scanner to use portrait mode.
             setOrientationLocked(false)
         }
-        // FIX 2: Pass the configured 'options' object, not a new empty one.
         scanQrCodeLauncher.launch(options)
     }
 
     private fun checkPermissionAndStartService(ipAddress: String) {
         if (ipAddress.isEmpty()) {
-            println("Cannot start service without a valid IP address.")
             return
         }
 
-        // The foreground service permission is only needed for API 34+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             when {
-                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED -> {
+                ContextCompat.checkSelfPermission(
+                    this, Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED -> {
                     startSyncService(ipAddress)
                 }
                 shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
-                    // TODO: Explain to the user why you need the permission.
                     requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
                 else -> {
@@ -183,7 +164,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         } else {
-            // No special permission needed on older versions, start service directly.
             startSyncService(ipAddress)
         }
     }
@@ -202,22 +182,18 @@ class MainActivity : ComponentActivity() {
 
     private fun startSyncService(ipAddress: String) {
         val serviceIntent = Intent(this, ClipboardSyncService::class.java).apply {
-            putExtra("SERVER_IP", ipAddress)
+            action = ClipboardSyncService.ACTION_CONNECT
+            putExtra(ClipboardSyncService.EXTRA_IP_ADDRESS, ipAddress)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
         } else {
             startService(serviceIntent)
         }
-        isServiceRunning = true
-        showConnectionError = false // Hide any previous errors on successful start
-        println("MainActivity: Attempted to start service with IP: $ipAddress")
     }
 
     private fun stopSyncService() {
         val serviceIntent = Intent(this, ClipboardSyncService::class.java)
         stopService(serviceIntent)
-        isServiceRunning = false
-        println("MainActivity: Attempted to stop service.")
     }
 }
