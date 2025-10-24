@@ -40,6 +40,8 @@ class ClipboardSyncService : Service() {
     // The active WebSocket connection (nullable, as it might not be connected)
     private var webSocket: WebSocket? = null
 
+    private var serverIpAddress: String? = null
+
     // WebSocket Listener implementation
     private val webSocketListener =
         object : WebSocketListener() {
@@ -104,13 +106,28 @@ class ClipboardSyncService : Service() {
                 .build()
 
         // --- Start Connection Attempt ---
-        connectWebSocket() // Call our new function
+//        connectWebSocket() // Call our new function
 
         println("ClipboardSyncService: Service Created and started in foreground.")
     }
 
     // Called when the service is started (e.g., by the main activity)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        println("ClipboardSyncService: onStartCommand received.")
+        // --- Get IP address from the Intent ---
+        val newIp = intent?.getStringExtra("SERVER_IP")
+        if (!newIp.isNullOrEmpty() && newIp != serverIpAddress) {
+            println("ClipboardSyncService: Received new IP: $newIp")
+            serverIpAddress = newIp
+            // If we have a new IP, disconnect old socket (if any) and connect again
+            webSocket?.close(1001, "Changing IP Address") // 1001 = Going Away
+            webSocket = null
+            connectWebSocket()
+        } else if (webSocket == null && !serverIpAddress.isNullOrEmpty()) {
+            // If not connected but we have an IP, try connecting
+            println("ClipboardSyncService: Attempting initial connection with stored IP.")
+            connectWebSocket()
+        }
         // We want the service to continue running until it is explicitly stopped
         // START_STICKY tells the system to restart the service if it gets killed
         return START_STICKY
@@ -136,7 +153,7 @@ class ClipboardSyncService : Service() {
 
 
     private fun connectWebSocket() {
-        if (webSocket != null) {
+        if (webSocket != null || serverIpAddress.isNullOrEmpty()) {
             println("WebSocket: Already connected or connecting.")
             return
         }
@@ -192,8 +209,7 @@ class ClipboardSyncService : Service() {
 
     companion object {
         // IP address and port of the PC server (needs to be configurable later)
-        private const val serverIpAddress =
-            "192.168.1.10" // Placeholder - GET THIS FROM QR CODE LATER
+
         private const val serverPort = 8081 // Use the same port as the C++ server (8081)
     }
 }
