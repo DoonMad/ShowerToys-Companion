@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.showertoyscompanion"
+    namespace = "com.example.towertoyscompanion"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.showertoyscompanion"
+        applicationId = "com.example.towertoyscompanion"
         minSdk = 28
         targetSdk = 34
         versionCode = 1

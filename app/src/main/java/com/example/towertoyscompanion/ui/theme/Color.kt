@@ -1,4 +1,4 @@
-package com.example.showertoyscompanion.ui.theme
+package com.example.towertoyscompanion.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

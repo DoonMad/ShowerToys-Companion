@@ -1,4 +1,4 @@
-package com.example.showertoyscompanion // Use your actual package name
+package com.example.towertoyscompanion // Use your actual package name
 
 // Android Core Imports
 import android.app.Notification
@@ -108,7 +108,6 @@ class ClipboardSyncService : Service() {
         }
     } // End of webSocketListener
 
-    // --- Service Lifecycle Methods ---
 
     override fun onCreate() {
         super.onCreate()
@@ -128,7 +127,6 @@ class ClipboardSyncService : Service() {
         // clipboardManager.addPrimaryClipChangedListener(clipboardListener)
 
         println("ClipboardSyncService: Service Created.")
-        // Note: Connection attempt moved to onStartCommand to ensure IP is available
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -292,8 +290,8 @@ class ClipboardSyncService : Service() {
 
     // --- Companion Object --- (Constants for Intent Actions/Extras)
     companion object {
-        const val ACTION_CONNECT = "com.example.showertoyscompanion.CONNECT"
-        const val EXTRA_IP_ADDRESS = "com.example.showertoyscompanion.IP_ADDRESS"
+        const val ACTION_CONNECT = "com.example.towertoyscompanion.CONNECT"
+        const val EXTRA_IP_ADDRESS = "com.example.towertoyscompanion.IP_ADDRESS"
         private const val SERVER_PORT = 8081 // WebSocket Port
     }
 }

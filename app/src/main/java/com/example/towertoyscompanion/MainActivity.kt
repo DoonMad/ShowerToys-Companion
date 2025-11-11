@@ -1,4 +1,4 @@
-package com.example.showertoyscompanion // Use your actual package name
+package com.example.towertoyscompanion // Use your actual package name
 
 // Android Core & Lifecycle Imports
 import android.Manifest
@@ -32,7 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 // App Specific Imports
-import com.example.showertoyscompanion.ui.theme.ShowertoysCompanionTheme
+import com.example.towertoyscompanion.ui.theme.TowerToysCompanionTheme
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 
@@ -126,7 +126,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            ShowertoysCompanionTheme {
+            TowerToysCompanionTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -168,7 +168,7 @@ class MainActivity : ComponentActivity() {
             verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("ShowerToys Companion", style = MaterialTheme.typography.headlineLarge) // Use Large headline
+            Text("TowerToys Companion", style = MaterialTheme.typography.headlineLarge) // Use Large headline
             Spacer(modifier = Modifier.height(24.dp)) // Add more space
 
             // Display connection status text and color
@@ -243,7 +243,7 @@ class MainActivity : ComponentActivity() {
 
     private fun launchQrScanner() {
         val options = ScanOptions().apply {
-            setPrompt("Scan QR code from ShowerToys")
+            setPrompt("Scan QR code from TowerToys")
             setDesiredBarcodeFormats(ScanOptions.QR_CODE)
             setOrientationLocked(false) // Keep unlocked
 //            setBeepEnabled(false)

@@ -1,4 +1,4 @@
-package com.example.showertoyscompanion
+package com.example.towertoyscompanion
 
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.StateFlow

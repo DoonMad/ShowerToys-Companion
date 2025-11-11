@@ -1,4 +1,4 @@
-package com.example.showertoyscompanion // Use your actual package name
+package com.example.towertoyscompanion // Use your actual package name
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow

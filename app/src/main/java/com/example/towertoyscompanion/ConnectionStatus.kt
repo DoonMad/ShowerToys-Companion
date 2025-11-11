@@ -1,4 +1,4 @@
-package com.example.showertoyscompanion
+package com.example.towertoyscompanion
 
 /**
  * Represents the possible states of the WebSocket connection.

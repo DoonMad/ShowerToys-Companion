@@ -1,4 +1,4 @@
-package com.example.showertoyscompanion.ui.theme
+package com.example.towertoyscompanion.ui.theme
 
 import android.app.Activity
 import android.os.Build
@@ -38,7 +38,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun ShowertoysCompanionTheme(
+fun TowerToysCompanionTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,

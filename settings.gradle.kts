@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ShowerToys Companion"
+rootProject.name = "TowerToys Companion"
 include(":app")
